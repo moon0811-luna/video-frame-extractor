@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>视频按 250ms 原尺寸抽帧工具</title>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --danger: #dc2626;
+      --success: #16a34a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wrap {
+      width: min(1040px, calc(100% - 32px));
+      margin: 36px auto;
+    }
+    .hero {
+      background: linear-gradient(135deg, #eef2ff, #ffffff 55%, #eff6ff);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 28px;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, .08);
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(24px, 4vw, 38px);
+      letter-spacing: -0.04em;
+    }
+    .sub {
+      color: var(--muted);
+      line-height: 1.7;
+      margin: 0;
+      max-width: 780px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 18px;
+      margin-top: 18px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 10px 26px rgba(15, 23, 42, .05);
+    }
+    label {
+      display: block;
+      font-weight: 700;
+      margin: 12px 0 8px;
+    }
+    input[type="file"], input[type="number"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 11px 12px;
+      background: #fff;
+      font-size: 15px;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 16px;
+      background: var(--primary);
+      color: #fff;
+      font-weight: 800;
+      font-size: 15px;
+      cursor: pointer;
+      transition: .15s ease;
+    }
+    button:hover { background: var(--primary-dark); }
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+    .btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .secondary {
+      background: #111827;
+    }
+    .secondary:hover {
+      background: #030712;
+    }
+    .danger {
+      background: var(--danger);
+    }
+    .danger:hover {
+      background: #b91c1c;
+    }
+    video {
+      width: 100%;
+      border-radius: 14px;
+      background: #111827;
+      margin-top: 12px;
+      display: none;
+    }
+    .status {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: #f9fafb;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      line-height: 1.65;
+      min-height: 54px;
+      white-space: pre-wrap;
+    }
+    progress {
+      width: 100%;
+      height: 16px;
+      margin-top: 12px;
+      accent-color: var(--primary);
+    }
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .pill {
+      background: #f9fafb;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+    }
+    .pill strong {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .hint {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+      margin-top: 12px;
+    }
+    .thumbs {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+    .thumb {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .thumb img {
+      width: 100%;
+      display: block;
+      background: #111827;
+    }
+    .thumb div {
+      padding: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      word-break: break-all;
+    }
+    .ok { color: var(--success); font-weight: 700; }
+    .warn { color: #b45309; font-weight: 700; }
+    @media (max-width: 820px) {
+      .grid { grid-template-columns: 1fr; }
+      .row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>视频原尺寸抽帧工具</h1>
+      <p class="sub">
+        上传本地视频后，默认每隔 <b>250 毫秒</b> 提取一张图片。导出格式为 PNG，画布尺寸严格使用原视频宽高，不额外压缩、不缩放分辨率。所有处理均在浏览器本地完成，视频不会上传到服务器。
+      </p>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <label for="file">选择视频文件</label>
+        <input id="file" type="file" accept="video/*" />
+
+        <div class="row">
+          <div>
+            <label for="interval">抽帧间隔 / 毫秒</label>
+            <input id="interval" type="number" min="1" step="1" value="250" />
+          </div>
+          <div>
+            <label for="prefix">图片文件名前缀</label>
+            <input id="prefix" type="text" value="frame" style="width:100%;border:1px solid var(--line);border-radius:12px;padding:11px 12px;font-size:15px;" />
+          </div>
+        </div>
+
+        <video id="video" controls muted playsinline></video>
+
+        <div class="btns">
+          <button id="start" disabled>开始抽帧并打包 ZIP</button>
+          <button id="clear" class="secondary" disabled>清空结果</button>
+          <button id="stop" class="danger" disabled>停止</button>
+        </div>
+
+        <progress id="progress" value="0" max="100"></progress>
+        <div id="status" class="status">请先选择一个视频文件。</div>
+      </section>
+
+      <aside class="card">
+        <h2 style="margin:0 0 8px;font-size:20px;">输出说明</h2>
+        <div class="meta">
+          <div class="pill"><strong>导出格式</strong><span>PNG，无损格式</span></div>
+          <div class="pill"><strong>默认间隔</strong><span>250ms，即每秒 4 张</span></div>
+          <div class="pill"><strong>分辨率</strong><span id="res">未读取</span></div>
+          <div class="pill"><strong>预计张数</strong><span id="count">未读取</span></div>
+        </div>
+        <p class="hint">
+          说明：本工具不会把图片缩小或压缩；但视频本身通常已经是压缩编码，浏览器会先解码视频帧，再以 PNG 保存，因此输出是“按原视频帧分辨率、无新增有损压缩”的图片。
+        </p>
+        <p class="hint warn">
+          长视频会生成大量 PNG，文件可能很大，浏览器内存也会明显增加。建议先用短片段测试。
+        </p>
+      </aside>
+    </div>
+
+    <section class="card" style="margin-top:18px;">
+      <h2 style="margin:0 0 8px;font-size:20px;">预览</h2>
+      <p class="hint" style="margin-top:0;">这里只显示前 24 张预览，ZIP 中会包含完整抽帧结果。</p>
+      <div id="thumbs" class="thumbs"></div>
+    </section>
+  </div>
+
+  <canvas id="canvas" style="display:none;"></canvas>
+
+  <script>
+    const fileInput = document.getElementById('file');
+    const video = document.getElementById('video');
+    const intervalInput = document.getElementById('interval');
+    const prefixInput = document.getElementById('prefix');
+    const startBtn = document.getElementById('start');
+    const clearBtn = document.getElementById('clear');
+    const stopBtn = document.getElementById('stop');
+    const progress = document.getElementById('progress');
+    const statusBox = document.getElementById('status');
+    const canvas = document.getElementById('canvas');
+    const thumbs = document.getElementById('thumbs');
+    const resEl = document.getElementById('res');
+    const countEl = document.getElementById('count');
+
+    let objectUrl = null;
+    let stopRequested = false;
+    let currentVideoName = 'video';
+
+    function log(text) {
+      statusBox.textContent = text;
+    }
+
+    function formatTime(seconds) {
+      const ms = Math.round((seconds % 1) * 1000).toString().padStart(3, '0');
+      const total = Math.floor(seconds);
+      const s = String(total % 60).padStart(2, '0');
+      const m = String(Math.floor(total / 60) % 60).padStart(2, '0');
+      const h = Math.floor(total / 3600);
+      return h > 0 ? `${h}_${m}_${s}_${ms}` : `${m}_${s}_${ms}`;
+    }
+
+    function sanitizeName(name) {
+      return (name || 'frame').replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_');
+    }
+
+    function waitForEvent(target, eventName) {
+      return new Promise((resolve, reject) => {
+        const onEvent = () => cleanup(resolve);
+        const onError = () => cleanup(() => reject(new Error('视频读取失败。')));
+        const cleanup = (fn) => {
+          target.removeEventListener(eventName, onEvent);
+          target.removeEventListener('error', onError);
+          fn();
+        };
+        target.addEventListener(eventName, onEvent, { once: true });
+        target.addEventListener('error', onError, { once: true });
+      });
+    }
+
+    async function seekTo(time) {
+      const safeTime = Math.min(Math.max(time, 0), Math.max(video.duration - 0.001, 0));
+      video.currentTime = safeTime;
+      await waitForEvent(video, 'seeked');
+      if (video.requestVideoFrameCallback) {
+        await new Promise(resolve => video.requestVideoFrameCallback(() => resolve()));
+      }
+    }
+
+    function canvasToBlob(type = 'image/png') {
+      return new Promise(resolve => canvas.toBlob(resolve, type));
+    }
+
+    function addThumb(blob, name) {
+      if (thumbs.children.length >= 24) return;
+      const url = URL.createObjectURL(blob);
+      const box = document.createElement('div');
+      box.className = 'thumb';
+      const img = document.createElement('img');
+      img.src = url;
+      const caption = document.createElement('div');
+      caption.textContent = name;
+      box.appendChild(img);
+      box.appendChild(caption);
+      thumbs.appendChild(box);
+    }
+
+    // CRC32 + ZIP STORE writer, no external dependencies
+    const crcTable = (() => {
+      const table = new Uint32Array(256);
+      for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+        table[n] = c >>> 0;
+      }
+      return table;
+    })();
+
+    function crc32(uint8) {
+      let crc = 0 ^ -1;
+      for (let i = 0; i < uint8.length; i++) {
+        crc = (crc >>> 8) ^ crcTable[(crc ^ uint8[i]) & 0xFF];
+      }
+      return (crc ^ -1) >>> 0;
+    }
+
+    function dosDateTime(date = new Date()) {
+      const time = ((date.getHours() & 0x1F) << 11) | ((date.getMinutes() & 0x3F) << 5) | ((Math.floor(date.getSeconds() / 2)) & 0x1F);
+      const dosDate = (((date.getFullYear() - 1980) & 0x7F) << 9) | (((date.getMonth() + 1) & 0x0F) << 5) | (date.getDate() & 0x1F);
+      return { time, date: dosDate };
+    }
+
+    function u16(value) {
+      return new Uint8Array([value & 255, (value >>> 8) & 255]);
+    }
+
+    function u32(value) {
+      return new Uint8Array([value & 255, (value >>> 8) & 255, (value >>> 16) & 255, (value >>> 24) & 255]);
+    }
+
+    function concatParts(parts) {
+      const total = parts.reduce((sum, p) => sum + p.length, 0);
+      const out = new Uint8Array(total);
+      let offset = 0;
+      for (const p of parts) {
+        out.set(p, offset);
+        offset += p.length;
+      }
+      return out;
+    }
+
+    function makeZip(files) {
+      const encoder = new TextEncoder();
+      const localParts = [];
+      const centralParts = [];
+      let offset = 0;
+      const { time, date } = dosDateTime();
+
+      files.forEach(file => {
+        const nameBytes = encoder.encode(file.name);
+        const data = file.data;
+        const crc = crc32(data);
+
+        const localHeader = concatParts([
+          u32(0x04034b50), u16(20), u16(0), u16(0), u16(time), u16(date),
+          u32(crc), u32(data.length), u32(data.length), u16(nameBytes.length), u16(0), nameBytes
+        ]);
+
+        localParts.push(localHeader, data);
+
+        const centralHeader = concatParts([
+          u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(time), u16(date),
+          u32(crc), u32(data.length), u32(data.length), u16(nameBytes.length), u16(0), u16(0),
+          u16(0), u16(0), u32(0), u32(offset), nameBytes
+        ]);
+
+        centralParts.push(centralHeader);
+        offset += localHeader.length + data.length;
+      });
+
+      const centralSize = centralParts.reduce((sum, p) => sum + p.length, 0);
+      const centralOffset = offset;
+
+      const end = concatParts([
+        u32(0x06054b50), u16(0), u16(0), u16(files.length), u16(files.length),
+        u32(centralSize), u32(centralOffset), u16(0)
+      ]);
+
+      return new Blob([...localParts, ...centralParts, end], { type: 'application/zip' });
+    }
+
+    async function blobToUint8(blob) {
+      return new Uint8Array(await blob.arrayBuffer());
+    }
+
+    function downloadBlob(blob, filename) {
+      const a = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function updateEstimate() {
+      const intervalMs = Math.max(1, Number(intervalInput.value) || 250);
+      if (!Number.isFinite(video.duration)) return;
+      const frames = Math.floor(video.duration * 1000 / intervalMs) + 1;
+      countEl.textContent = `${frames} 张`;
+    }
+
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      objectUrl = URL.createObjectURL(file);
+      currentVideoName = sanitizeName(file.name.replace(/\.[^.]+$/, ''));
+
+      video.src = objectUrl;
+      video.style.display = 'block';
+      startBtn.disabled = true;
+      clearBtn.disabled = false;
+      stopBtn.disabled = true;
+      progress.value = 0;
+      thumbs.innerHTML = '';
+      log('正在读取视频信息……');
+
+      try {
+        await waitForEvent(video, 'loadedmetadata');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        resEl.textContent = `${video.videoWidth} × ${video.videoHeight}`;
+        updateEstimate();
+        startBtn.disabled = false;
+        log(`视频已读取。\n分辨率：${video.videoWidth} × ${video.videoHeight}\n时长：${video.duration.toFixed(3)} 秒\n点击“开始抽帧并打包 ZIP”。`);
+      } catch (err) {
+        log('读取视频失败，请换一个浏览器或视频文件重试。');
+      }
+    });
+
+    intervalInput.addEventListener('input', updateEstimate);
+
+    clearBtn.addEventListener('click', () => {
+      thumbs.innerHTML = '';
+      progress.value = 0;
+      log('结果已清空，可以重新开始。');
+    });
+
+    stopBtn.addEventListener('click', () => {
+      stopRequested = true;
+      log('正在停止，当前帧处理完成后会结束。');
+    });
+
+    startBtn.addEventListener('click', async () => {
+      if (!video.src || !Number.isFinite(video.duration)) return;
+
+      stopRequested = false;
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      clearBtn.disabled = true;
+      thumbs.innerHTML = '';
+      progress.value = 0;
+
+      const intervalMs = Math.max(1, Number(intervalInput.value) || 250);
+      const prefix = sanitizeName(prefixInput.value || 'frame');
+      const durationMs = Math.floor(video.duration * 1000);
+      const totalFrames = Math.floor(durationMs / intervalMs) + 1;
+      const ctx = canvas.getContext('2d', { willReadFrequently: false });
+      const files = [];
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      try {
+        video.pause();
+
+        for (let i = 0; i < totalFrames; i++) {
+          if (stopRequested) break;
+
+          const tMs = Math.min(i * intervalMs, durationMs);
+          const tSec = tMs / 1000;
+
+          await seekTo(tSec);
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          const blob = await canvasToBlob('image/png');
+          const filename = `${prefix}_${String(i + 1).padStart(6, '0')}_${formatTime(tSec)}.png`;
+          files.push({ name: filename, data: await blobToUint8(blob) });
+          addThumb(blob, filename);
+
+          progress.value = Math.round(((i + 1) / totalFrames) * 100);
+          log(`正在抽帧：${i + 1} / ${totalFrames}\n当前时间点：${tSec.toFixed(3)} 秒\n输出尺寸：${canvas.width} × ${canvas.height}\n已缓存：${files.length} 张 PNG`);
+          await new Promise(r => setTimeout(r, 0));
+        }
+
+        if (files.length === 0) {
+          log('未生成图片。');
+          return;
+        }
+
+        if (stopRequested) {
+          log(`已停止。正在打包已生成的 ${files.length} 张图片……`);
+        } else {
+          log(`抽帧完成。正在打包 ${files.length} 张 PNG 图片……`);
+        }
+
+        const zipBlob = makeZip(files);
+        const zipName = `${currentVideoName}_frames_${intervalMs}ms_png.zip`;
+        downloadBlob(zipBlob, zipName);
+
+        log(`完成！\n已生成：${files.length} 张 PNG\n分辨率：${canvas.width} × ${canvas.height}\n已下载：${zipName}`);
+      } catch (err) {
+        console.error(err);
+        log('处理失败：' + (err && err.message ? err.message : '未知错误') + '\n建议更换 Chrome / Edge 浏览器，或先缩短视频片段。');
+      } finally {
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        clearBtn.disabled = false;
+        stopRequested = false;
+      }
+    });
+  </script>
+</body>
+</html>
